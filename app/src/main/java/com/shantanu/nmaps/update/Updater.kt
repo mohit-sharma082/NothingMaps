@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -22,11 +23,14 @@ data class Release(val build: Int, val version: String, val notes: String, val a
 object Updater {
     private const val LATEST = "https://api.github.com/repos/SutharShantanu/NothingMaps/releases/latest"
 
-    /** The newest release, or null when up to date or when the check can't be made. */
-    suspend fun check(): Release? {
-        val json = runCatching { Http.json(LATEST) }.getOrNull() ?: return null
-        val r = parse(json) ?: return null
-        return r.takeIf { it.build > BuildConfig.BUILD_NUMBER }
+    /** The newest release, or null when up to date. Throws when the check can't be made. */
+    suspend fun check(): Release? = newer(Http.json(LATEST), BuildConfig.BUILD_NUMBER)
+
+    /** The release in [json] if it beats [current]; null when it doesn't or has no APK. Throws when [json] isn't a release. */
+    fun newer(json: JSONObject, current: Int): Release? {
+        // Rate limits and outages come back as JSON with a message instead of a release.
+        if (!json.has("tag_name")) throw IOException(json.optString("message").ifBlank { "No release information" })
+        return parse(json)?.takeIf { it.build > current }
     }
 
     fun parse(json: JSONObject): Release? {

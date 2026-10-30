@@ -184,7 +184,7 @@ class TrackingService : Service() {
         scope.launch {
             runCatching { Relay.publish(session.link.topic, ShareCrypto.encrypt(session.link.key, payload.toJson())) }
                 .onSuccess { LiveShare.error.value = null }
-                .onFailure { LiveShare.error.value = "Couldn't reach the sharing relay. Retrying." }
+                .onFailure { LiveShare.error.value = "Couldn't reach the sharing relay. Trying again when you move, or within 5 minutes." }
         }
     }
 

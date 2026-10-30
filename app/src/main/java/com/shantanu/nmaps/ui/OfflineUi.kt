@@ -47,8 +47,8 @@ fun OfflineScreen(vm: MapViewModel) {
     val areas by vm.offline.areas.collectAsState()
     Page("Offline maps", { vm.back() }) {
         NText(
-            "Downloaded areas show the map, labels and your saved places with no connection. " +
-                "Directions and search for new places still need the internet.",
+            "Downloaded areas work with no connection: the map, search, and directions for driving, cycling and walking. " +
+                "Transit, weather and speed limits still need the internet.",
             NType.caption, Modifier.padding(horizontal = 8.dp), color = p.muted,
         )
         Spacer(Modifier.height(16.dp))

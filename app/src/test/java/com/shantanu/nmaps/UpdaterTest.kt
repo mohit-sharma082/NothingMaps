@@ -4,7 +4,10 @@ import com.shantanu.nmaps.update.Updater
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class UpdaterTest {
     private val release = JSONObject(
@@ -39,6 +42,19 @@ class UpdaterTest {
         assertEquals(42, r.build)
         assertEquals("1.0.42", r.version)
         assertEquals("https://d/release.apk", r.apkUrl)
+    }
+
+    @Test
+    fun newerOnlyWhenTheBuildIsAhead() {
+        assertEquals(42, Updater.newer(release, current = 41)?.build)
+        assertNull(Updater.newer(release, current = 42))
+    }
+
+    @Test
+    fun rateLimitIsAFailureNotUpToDate() {
+        val limited = JSONObject("""{"message":"API rate limit exceeded for 1.2.3.4.","documentation_url":"https://docs.github.com"}""")
+        val e = assertThrows(IOException::class.java) { Updater.newer(limited, current = 1) }
+        assertTrue(e.message!!.contains("rate limit"))
     }
 
     @Test

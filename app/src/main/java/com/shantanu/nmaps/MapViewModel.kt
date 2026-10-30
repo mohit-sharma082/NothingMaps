@@ -648,7 +648,8 @@ class MapViewModel(app: Application) : AndroidViewModel(app) {
             val local = (withTimeoutOrNull(1500) { fromTiles.await() } ?: emptyList()).sortedBy { distanceMeters(at, it.point) }
             state = state.copy(results = local)
             val remote = if (state.online) runCatching { Overpass.nearby(category, at) }.getOrNull() else null
-            val found = (remote ?: local).sortedBy { distanceMeters(at, it.point) }
+            // An empty answer from Overpass shouldn't wipe what the map's own tiles already found.
+            val found = (remote?.takeIf { it.isNotEmpty() } ?: local).sortedBy { distanceMeters(at, it.point) }
             state = state.copy(
                 results = found,
                 searching = false,
@@ -781,8 +782,9 @@ class MapViewModel(app: Application) : AndroidViewModel(app) {
             name = name.trim().ifBlank { place.name },
             category = category.trim().ifBlank { place.category },
         )
+        val wasSaved = state.saved.any { it.key == place.key }
         state = state.copy(saved = store.save(named))
-        toast(if (state.saved.any { it.key == place.key }) "Saved as ${named.name}" else "Saved")
+        toast(if (wasSaved) "Saved as ${named.name}" else "Saved")
     }
 
     fun setPlaceCategory(place: Place, category: String) {
@@ -1413,7 +1415,15 @@ class MapViewModel(app: Application) : AndroidViewModel(app) {
         if (state.checkingUpdate) return
         state = state.copy(checkingUpdate = true)
         viewModelScope.launch {
-            val found = Updater.check()
+            val found = try {
+                Updater.check()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // updateCheckedAt stays 0, so the quiet launch check tries again when the connection comes back.
+                state = state.copy(checkingUpdate = false)
+                if (!quiet) toast("Couldn't reach GitHub to check for updates. Try again later.")
+                return@launch
+            }
             val keep = state.update?.takeIf { found != null && it.release.build == found.build }
             state = state.copy(
                 checkingUpdate = false, updateCheckedAt = System.currentTimeMillis(),
